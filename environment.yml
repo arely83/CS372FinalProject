@@ -1,0 +1,47 @@
+name: cs372-cheatsheet-generator
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+
+dependencies:
+  # --- Core Python ---
+  - python=3.10
+
+  # --- PyTorch with CUDA (GPU support, adjust version as needed) ---
+  - pytorch=2.1
+  - pytorch-cuda=11.8
+
+  # --- NLP / Transformers ---
+  - transformers>=4.39
+  - datasets>=2.14
+  - sentencepiece
+  - tokenizers
+
+  # --- PDF Processing ---
+  - pymupdf   # fitz
+
+  # --- Utilities & Plotting ---
+  - pandas
+  - numpy
+  - matplotlib
+  - scikit-learn
+
+  # --- Notebook Support ---
+  - ipykernel
+  - jupyterlab
+  - notebook
+
+  # --- Optional but useful ---
+  - accelerate>=0.26
+  - tqdm
+  - pillow
+
+  # --- Pip installs (for anything missing in conda) ---
+  - pip
+  - pip:
+      - python-docx            # For PDF-to-DOCX-like conversions if needed
+      - reportlab              # For PDF rendering engine (optional)
+      - pdfplumber             # Extra PDF extraction tool
+      - gitpython              # only if you want automatic Git commits from Colab
