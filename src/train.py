@@ -38,29 +38,54 @@ def split_dataset(full_dataset: Dataset, seed: int = 42):
     """
     Split into train/val/test.
 
-    For small datasets:
-      - n == 1: use the same example for train/val/test
+    For very small datasets, do manual splits to avoid train_test_split
+    raising errors:
+      - n == 1: same example used for train/val/test
       - n == 2: 1 train, 1 val, and reuse val as test
-      - n >= 3: use a 60/20/20 split (approx)
+      - n == 3: 2 train, 1 val, reuse val as test
+      - n == 4: 2 train, 1 val, 1 test
+    For n >= 5: use a 60/20/20 split (approx) with train_test_split.
     """
     n = len(full_dataset)
+    print(f"[split_dataset] total examples: {n}")
 
     if n == 1:
-        # Degenerate case: one example used everywhere
         train_dataset = full_dataset
         val_dataset = full_dataset
         test_dataset = full_dataset
         return train_dataset, val_dataset, test_dataset
 
     if n == 2:
-        # 50/50 split, reuse val as test
-        temp = full_dataset.train_test_split(test_size=0.5, seed=seed)
-        train_dataset = temp["train"]
-        val_dataset = temp["test"]
-        test_dataset = temp["test"]
+        # [0] train, [1] val & test
+        train_idx = [0]
+        val_idx = [1]
+        test_idx = [1]
+        train_dataset = full_dataset.select(train_idx)
+        val_dataset = full_dataset.select(val_idx)
+        test_dataset = full_dataset.select(test_idx)
         return train_dataset, val_dataset, test_dataset
 
-    # Default: n >= 3 -> 60/20/20 (approx)
+    if n == 3:
+        # [0,1] train, [2] val & test
+        train_idx = [0, 1]
+        val_idx = [2]
+        test_idx = [2]
+        train_dataset = full_dataset.select(train_idx)
+        val_dataset = full_dataset.select(val_idx)
+        test_dataset = full_dataset.select(test_idx)
+        return train_dataset, val_dataset, test_dataset
+
+    if n == 4:
+        # [0,1] train, [2] val, [3] test
+        train_idx = [0, 1]
+        val_idx = [2]
+        test_idx = [3]
+        train_dataset = full_dataset.select(train_idx)
+        val_dataset = full_dataset.select(val_idx)
+        test_dataset = full_dataset.select(test_idx)
+        return train_dataset, val_dataset, test_dataset
+
+    # Default: n >= 5 -> 60/20/20 (approx)
     temp = full_dataset.train_test_split(test_size=0.4, seed=seed)
     test_valid = temp["test"].train_test_split(test_size=0.5, seed=seed)
     train_dataset = temp["train"]          # ~60%
