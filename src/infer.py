@@ -47,26 +47,50 @@ def generate_cheatsheet_text(
 
 
 def generate_sheet_for_pages(
-    notes_text: str,
-    exam_topics_text: str,
+    notes_text,
+    exam_topics_text,
     tokenizer,
     model,
-    device: str,
+    device,
     num_pages: int,
-) -> str:
-    """Generate cheatsheet text but truncated to fit N pages."""
-    cap = estimated_char_capacity(num_pages)
-    max_new_tokens = max(128, min(1024, cap // 4))
+    vocab_terms=None,   # <-- NEW
+):
+    """
+    Generate a cheatsheet text for the given notes + topics,
+    constrained by an estimated character capacity (num_pages).
+    Optionally uses vocab_terms to nudge the model.
+    """
+    # Estimate how much text we can fit
+    char_capacity = estimated_char_capacity(num_pages)
 
-    sheet = generate_cheatsheet_text(
-        notes_text,
-        exam_topics_text,
-        tokenizer,
-        model,
-        device,
-        max_new_tokens=max_new_tokens,
+    # Build the instruction-style prompt, INCLUDING vocab if provided
+    input_text = build_input(
+        notes_text=notes_text,
+        exam_topics_text=exam_topics_text,
+        vocab_terms=vocab_terms,   # <-- NEW
     )
 
-    if len(sheet) > cap:
-        sheet = sheet[:cap]
-    return sheet
+    # Tokenize and generate
+    inputs = tokenizer(
+        input_text,
+        return_tensors="pt",
+        truncation=True,
+        max_length=2048,
+    ).to(device)
+
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=512,
+            num_beams=4,
+            early_stopping=True,
+        )
+
+    generated = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    # Apply abbreviations and truncate to page capacity
+    generated = apply_abbreviations(generated)
+    if len(generated) > char_capacity:
+        generated = generated[:char_capacity]
+
+    return generated

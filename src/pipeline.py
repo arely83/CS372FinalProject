@@ -2,7 +2,14 @@ import os
 
 from .data_processing import extract_text_and_images, concat_page_text
 from .infer import load_model, generate_sheet_for_pages
-from .utils import pick_relevant_images, render_reference_pdf
+from .utils import (
+    build_input,
+    apply_abbreviations,
+    pick_relevant_images,
+    estimated_char_capacity,
+    extract_vocab_terms_from_notes,
+)
+from .utils import render_reference_pdf  # make sure this is imported too
 
 
 def generate_reference_sheet_pipeline(
@@ -33,17 +40,23 @@ def generate_reference_sheet_pipeline(
     notes_text = concat_page_text(notes_pages)
     exam_topics_text = concat_page_text(topics_pages)
 
+    # 1b) Extract vocabulary terms from the notes
+    # These will be passed into the prompt so the model is nudged
+    # to define and highlight them.
+    vocab_terms = extract_vocab_terms_from_notes(notes_text)
+
     # 2) Load model
     tokenizer, model, device = load_model(model_dir)
 
-    # 3) Generate text (page constrained)
+    # 3) Generate text (page constrained), now USING vocab_terms
     sheet_text = generate_sheet_for_pages(
-        notes_text,
-        exam_topics_text,
-        tokenizer,
-        model,
-        device,
+        notes_text=notes_text,
+        exam_topics_text=exam_topics_text,
+        tokenizer=tokenizer,
+        model=model,
+        device=device,
         num_pages=num_pages,
+        vocab_terms=vocab_terms,  # <-- NEW
     )
 
     # 4) Select images

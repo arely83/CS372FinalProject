@@ -4,22 +4,76 @@ from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 
 
-def build_input(notes_text, exam_topics_text):
-    """Constructs the instruction-style input for the model."""
-    return f"""
-You are generating a dense exam reference sheet.
+def extract_vocab_terms_from_notes(notes_text: str, max_terms: int = 50) -> List[str]:
+    """
+    Heuristic extraction of vocabulary terms from the notes.
 
-Exam topics:
+    - Looks for patterns like "Term - definition" or "Term: definition".
+    - Treats the left-hand side as the vocab term.
+    - Also picks up ALL-CAPS words that look like key concepts.
+    """
+    vocab_terms = set()
+
+    # Pattern-based extraction from "Term - definition" style lines
+    for line in notes_text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        # patterns: "Term - def", "Term – def", "Term: def"
+        match = re.match(r"^([A-Za-z0-9 /()\[\]_]+)\s*[-–:]\s+.+$", line)
+        if match:
+            term = match.group(1).strip()
+            # Avoid super short or obviously junk tokens
+            if len(term) > 2:
+                vocab_terms.add(term)
+
+    # ALL-CAPS “concept” words of length >= 3
+    for token in re.findall(r"\b[A-Z]{3,}\b", notes_text):
+        if len(token) >= 3:
+            vocab_terms.add(token)
+
+    # Limit to a reasonable number to avoid blowing up the prompt
+    return sorted(vocab_terms)[:max_terms]
+
+
+def build_input(notes_text, exam_topics_text, vocab_terms=None):
+    """
+    Construct a strong instruction-style input for the model.
+
+    - PRIORITIZE compressing the student's notes.
+    - Use exam topics as a coverage checklist.
+    - Include vocabulary terms + short definitions when possible.
+    """
+    vocab_block = ""
+    if vocab_terms:
+        vocab_list = "\n".join(f"- {t}" for t in vocab_terms)
+        vocab_block = f"""
+Key vocabulary terms that MUST appear with short definitions.
+When you first introduce each term, surround it with **double asterisks** to mark it as important:
+{vocab_list}
+"""
+
+    prompt = f"""You are generating a VERY COMPACT exam reference sheet.
+
+Your job:
+- Create a SUPER CONDENSED, efficient version of the STUDENT'S NOTES.
+- PRIORITIZE the NOTES over the topic list.
+- COVER EVERY EXAM TOPIC at least briefly.
+- INCLUDE vocabulary terms and short DEFINITIONS.
+- Use dense bullet points and short phrases, not full sentences.
+- Organize content by topic in a logical order.
+- Assume the cheat sheet will be rendered in two columns, but DO NOT mention columns in the text.
+
+Exam topics (use these as a checklist, but do NOT just repeat them verbatim):
 {exam_topics_text}
 
-Class notes:
+Student notes (this is the main source of content – compress this aggressively):
 {notes_text}
-
-Write a bullet-point style cheat sheet covering ONLY the exam topics.
-Use abbreviations where possible (bc, w/, &, w/o).
-Use compact phrases instead of full sentences.
-Output ONLY the cheat sheet text, with clear headings and bullet points.
-""".strip()
+{vocab_block}
+Now write the final cheat sheet below. Start directly with the content:
+"""
+    return prompt.strip()
 
 
 ABBREV_MAP = {

@@ -27,3 +27,5 @@ I used the LLM ChatGPT for the following:
 * Prompted the LLM to help me debug the following:
     * split_dataset in train.py in the case of smaller datasets
     * Version issue with transformers
+    * Resolving issue with saving model to local machine due to memory limitations
+    * Debugging saving trained model to Google Drive and retrieving it for inference (training and inference notebooks)
