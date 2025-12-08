@@ -1,7 +1,18 @@
 import re
+from typing import List
+
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
+from reportlab.pdfgen import canvas  # can stay, even if not used
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import (
+    BaseDocTemplate,
+    Frame,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+    Image,
+)
 
 
 def extract_vocab_terms_from_notes(notes_text: str, max_terms: int = 50) -> List[str]:
@@ -155,76 +166,84 @@ def pick_relevant_images(exam_topics_text, notes_pages, notes_images, max_images
 
 
 def render_reference_pdf(
-    sheet_text,
-    image_paths,
-    out_path,
-    num_pages,
-    font_name="Helvetica",
-    font_size=8,
-    margin=0.5 * inch,
+    sheet_text: str,
+    image_paths: List[str],
+    out_path: str,
+    num_pages: int,
+    font_name: str = "Helvetica",
+    font_size: int = 8,
+    margin: float = 0.5 * inch,
 ):
-    """Render the cheatsheet text + images into a multi-page PDF."""
-    c = canvas.Canvas(out_path, pagesize=letter)
-    width, height = letter
+    """
+    Render the cheatsheet text + images into a TWO-COLUMN PDF using ReportLab Platypus.
 
-    line_height = font_size * 1.2
-    usable_width = width - 2 * margin
+    We assume the text has already been truncated to roughly fit `num_pages`
+    via `estimated_char_capacity` earlier in the pipeline.
+    """
+    # --- Document + layout setup ---
+    doc = BaseDocTemplate(
+        out_path,
+        pagesize=letter,
+        leftMargin=margin,
+        rightMargin=margin,
+        topMargin=margin,
+        bottomMargin=margin,
+    )
 
-    def new_page():
-        c.showPage()
-        c.setFont(font_name, font_size)
-        return height - margin
+    # Two columns per page with a small gap
+    column_gap = 0.2 * inch
+    frame_width = (doc.width - column_gap) / 2.0
+    frame_height = doc.height
 
-    c.setFont(font_name, font_size)
-    x = margin
-    y = height - margin
+    frame1 = Frame(
+        doc.leftMargin,
+        doc.bottomMargin,
+        frame_width,
+        frame_height,
+        id="col1",
+    )
+    frame2 = Frame(
+        doc.leftMargin + frame_width + column_gap,
+        doc.bottomMargin,
+        frame_width,
+        frame_height,
+        id="col2",
+    )
 
-    words = sheet_text.split()
-    line = ""
-    pages_used = 1
+    template = PageTemplate(id="TwoCol", frames=[frame1, frame2])
+    doc.addPageTemplates([template])
 
-    for w in words:
-        test = (line + " " + w).strip()
-        if len(test) * font_size * 0.5 > usable_width:
-            if y < margin + line_height:
-                if pages_used >= num_pages:
-                    c.save()
-                    return
-                pages_used += 1
-                y = new_page()
-            c.drawString(x, y, line)
-            y -= line_height
-            line = w
-        else:
-            line = test
+    # --- Styles ---
+    styles = getSampleStyleSheet()
+    body_style = styles["BodyText"]
+    body_style.fontName = font_name
+    body_style.fontSize = font_size
+    body_style.leading = font_size * 1.2
 
-    if line:
-        if y < margin + line_height and pages_used < num_pages:
-            pages_used += 1
-            y = new_page()
-        if y >= margin + line_height:
-            c.drawString(x, y, line)
-            y -= line_height
+    # --- Build story from text + images ---
+    story = []
 
-    for img_path in image_paths:
-        if pages_used > num_pages:
-            break
-        img_width = 2.5 * inch
-        img_height = 2.0 * inch
-        if y < margin + img_height:
-            if pages_used >= num_pages:
-                break
-            pages_used += 1
-            y = new_page()
-        c.drawImage(
-            img_path,
-            x,
-            y - img_height,
-            width=img_width,
-            height=img_height,
-            preserveAspectRatio=True,
-            mask="auto",
-        )
-        y -= img_height + 0.2 * inch
+    # Split text into paragraphs by line (you can tweak this if needed)
+    lines = [line.strip() for line in sheet_text.split("\n") if line.strip()]
 
-    c.save()
+    for line in lines:
+        # Basic replacement so bullet characters behave OK in Paragraph
+        # (ReportLab understands a subset of HTML; here we just treat text literally)
+        para_text = line.replace("•", "-")
+        story.append(Paragraph(para_text, body_style))
+        story.append(Spacer(1, 1.5))
+
+    # Append images at the end (or you can insert them earlier in the loop)
+    for img_path in image_paths or []:
+        try:
+            story.append(Image(img_path, width=1.8 * inch, height=1.3 * inch))
+            story.append(Spacer(1, 4))
+        except Exception:
+            # If an image can't be loaded, just skip it
+            continue
+
+    # NOTE: We rely on earlier truncation (estimated_char_capacity) to
+    # keep the story short enough to fit in `num_pages`. BaseDocTemplate
+    # doesn't have a simple "max pages" cap, so the page limit is enforced
+    # indirectly by how much text we feed in.
+    doc.build(story)

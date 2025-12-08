@@ -8,8 +8,8 @@ from .utils import (
     pick_relevant_images,
     estimated_char_capacity,
     extract_vocab_terms_from_notes,
+    render_reference_pdf,
 )
-from .utils import render_reference_pdf  # make sure this is imported too
 
 
 def generate_reference_sheet_pipeline(

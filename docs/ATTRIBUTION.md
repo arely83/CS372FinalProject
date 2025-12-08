@@ -24,6 +24,7 @@ I used the LLM ChatGPT for the following:
 * Prompted the LLM to help write the method generate_cheatsheet_text in infer.py.
 * Prompted the LLM for what heuristic to use for image selection and how to implement it in pick_relevant_images
 * Prompted the LLM to write estimated_char_capacity in utils.py.
+* Prompted the LLM to help enforce the two-column format when rendering (render_reference_pdf in utils.py).
 * Prompted the LLM to help me debug the following:
     * split_dataset in train.py in the case of smaller datasets
     * Version issue with transformers
