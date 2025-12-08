@@ -15,6 +15,9 @@ from transformers import (
 from .data_processing import load_example
 from .utils import build_input
 
+from datasets import Dataset
+
+
 
 def build_raw_dataset(train_examples: List[Tuple[str, str, str]]):
     """
@@ -32,11 +35,37 @@ def build_raw_dataset(train_examples: List[Tuple[str, str, str]]):
 
 
 def split_dataset(full_dataset: Dataset, seed: int = 42):
+    """
+    Split into train/val/test.
+
+    For small datasets:
+      - n == 1: use the same example for train/val/test
+      - n == 2: 1 train, 1 val, and reuse val as test
+      - n >= 3: use a 60/20/20 split (approx)
+    """
+    n = len(full_dataset)
+
+    if n == 1:
+        # Degenerate case: one example used everywhere
+        train_dataset = full_dataset
+        val_dataset = full_dataset
+        test_dataset = full_dataset
+        return train_dataset, val_dataset, test_dataset
+
+    if n == 2:
+        # 50/50 split, reuse val as test
+        temp = full_dataset.train_test_split(test_size=0.5, seed=seed)
+        train_dataset = temp["train"]
+        val_dataset = temp["test"]
+        test_dataset = temp["test"]
+        return train_dataset, val_dataset, test_dataset
+
+    # Default: n >= 3 -> 60/20/20 (approx)
     temp = full_dataset.train_test_split(test_size=0.4, seed=seed)
     test_valid = temp["test"].train_test_split(test_size=0.5, seed=seed)
-    train_dataset = temp["train"]
-    val_dataset = test_valid["train"]
-    test_dataset = test_valid["test"]
+    train_dataset = temp["train"]          # ~60%
+    val_dataset = test_valid["train"]      # ~20%
+    test_dataset = test_valid["test"]      # ~20%
     return train_dataset, val_dataset, test_dataset
 
 
