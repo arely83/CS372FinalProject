@@ -11,19 +11,22 @@ This system takes two inputs (your class notes PDF and an exam topics PDF) and g
 
 ---
 
-## Quick Start
+## Quick Start 
 
-1. **Run the training notebook:**
+Generate a cheat sheet using the [inference notebook](https://colab.research.google.com/drive/1JcPd02BrtB2o1V6OIxhLVjCzQASN2KBf#scrollTo=YMl1WkuWBH2V):
+* Upload PDFs of your notes and a list of exam topics.
+* Modify NOTES_PDF, TOPICS_PDF, and NUM_PAGES (notes PDF name, exam topics PDF name, number of pages allotted for reference sheet)
+* Follow instructions in the notebook to retrieve the generated PDF.
 
-3. **Generate a cheat sheet using the inference notebook**
+The model should already be trained via the [training notebook](https://colab.research.google.com/drive/1cARDH59mQB4LZpH5EnlBDk3MEbqb7Cem#scrollTo=xBovSokrAufr).
 
 ---
 
 ## Video Links
 
-Demo Video: placeholder – link coming soon
+Demo Video: BLAH
 
-Technical Walkthrough: placeholder – link coming soon
+Technical Walkthrough: BLAH
 
 ---
 
@@ -34,20 +37,12 @@ Training Curves:
 
 
 
-Test Set Performance:
-
-Final test loss: placeholder
-
-Observed improvements: placeholder
-
 Qualitative Outcomes
 
-Model produces structured cheat sheets using headings + bullets
+* Model produces structured cheat sheets using headings + bullets
 
-Automatically selects relevant diagrams based on keyword overlap
+* Automatically selects relevant diagrams based on keyword overlap
 
-Consistently fits output within target page limit
+* Consistently fits output within target page limit
 
-Demonstrated effective abbreviation usage (bc, w/, w/o, &)
-
-Example output (text excerpt):
+* Demonstrated effective abbreviation usage (bc, w/, w/o, &)

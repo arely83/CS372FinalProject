@@ -36,5 +36,5 @@ It should already have been run. It also contains training curves and an option 
 Inference is handled here: https://colab.research.google.com/drive/1JcPd02BrtB2o1V6OIxhLVjCzQASN2KBf#scrollTo=YMl1WkuWBH2V
 
 * Upload PDFs of your notes and a list of exam topics.
-* If needed, modify NUM_PAGES, the number of pages you're allocated for your reference sheet.
+* Modify NOTES_PDF, TOPICS_PDF, and NUM_PAGES (notes PDF name, exam topics PDF name, number of pages allotted for reference sheet)
 * Follow instructions in the notebook to retrieve the generated PDF.
