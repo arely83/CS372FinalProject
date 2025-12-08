@@ -34,7 +34,7 @@ Technical Walkthrough: BLAH
 Quantitative Results
 
 Training Curves:
-
+[Training and Validation Loss](https://github.com/arely83/CS372FinalProject/blob/main/docs/training_curves.png?raw=true)
 
 
 Qualitative Outcomes
