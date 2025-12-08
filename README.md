@@ -9,6 +9,8 @@ This project automatically generates compact, page-limited exam reference sheets
 
 This system takes two inputs (your class notes PDF and an exam topics PDF) and generates a highly compressed reference sheet tailored to your exam. It extracts relevant diagrams, applies abbreviations, and fits the result within a user-specified page limit. Internally, the pipeline uses PDF parsing, diagram retrieval, a fine-tuned T5 model for summarization, and custom PDF rendering. The system is trained on example pairs of notes, exam topics, and human-written cheat sheets to learn how to compress, prioritize, and structure content effectively.
 
+I intended to download the trained model to my local machine and then upload it to the models folder, but my laptop kept running out of system memory and crashing, which is why the folder is empty.
+
 ---
 
 ## Quick Start 
