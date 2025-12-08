@@ -30,12 +30,9 @@ Technical Walkthrough: placeholder – link coming soon
 ## Evaluation
 Quantitative Results
 
-Training Loss Curve:
-(Insert screenshot)
-placeholder – training curves image will go here (docs/training_curves.png)
+Training Curves:
 
-Validation Loss Curve:
-placeholder
+
 
 Test Set Performance:
 
