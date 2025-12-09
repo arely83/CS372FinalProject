@@ -140,7 +140,7 @@ def create_trainer(
         learning_rate=5e-5,
         num_train_epochs=10,
         weight_decay=0.01,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         save_strategy="epoch",
         logging_strategy="steps",
         logging_steps=1,
