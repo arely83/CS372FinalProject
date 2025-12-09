@@ -43,10 +43,14 @@ The training curves show a steady reduction in training loss and a stable valida
 
 Qualitative Outcomes
 
-* Model produces structured cheat sheets using headings + bullets
+* Model cheat sheet using content from notes
 
-* Automatically selects relevant diagrams based on keyword overlap
+* Automatically selects relevant diagrams
 
-* Consistently fits output within target page limit
+* Fits output within target page limit
 
-* Demonstrated effective abbreviation usage (bc, w/, w/o, &)
+Because this project is an early prototype, the generated PDFs reflect the limitations of the current pipeline rather than the overall potential of the system. Text extraction, diagram detection, and summarization are still handled with relatively simple heuristics, which leads to incomplete or low-fidelity output. As a result, the final PDF is functional enough to demonstrate the workflow, but not polished or representative of what a more advanced implementation could achieve.
+
+Creating a clean, well-organized “reference sheet” from heterogeneous inputs (slides, notes, diagrams, topics) is an inherently hard problem that usually requires deep semantic understanding and layout reasoning. Because the system relies on lightweight models and rule-based formatting, it struggles with relevance ranking, space prioritization, and visual placement, which leads to lower-quality PDFs.
+
+The quality of the generated PDF is heavily dependent on the clarity and structure of the input documents. Notes and scraped diagrams vary widely in formatting and readability, which introduces noise into the RAG pipeline and reduces coherence in the final PDF.
