@@ -38,7 +38,11 @@ def generate_sheet_for_pages(
     optionally nudged by a list of vocab_terms.
     """
     # 1) Estimate how much text we can fit
-    char_capacity = estimated_char_capacity(num_pages)
+    char_capacity = estimated_char_capacity(
+        num_pages=num_pages,
+        font_size=8,
+        columns=2,
+    )
 
     # 2) Build the instruction-style prompt
     input_text = build_input(

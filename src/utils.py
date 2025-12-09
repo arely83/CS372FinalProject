@@ -65,6 +65,8 @@ def build_input(
     - Use exam topics as a coverage checklist (not the main content).
     - Include vocabulary terms + short definitions when possible.
     """
+
+    # Vocab block
     vocab_block = ""
     if vocab_terms:
         vocab_list = "\n".join(f"- {t}" for t in vocab_terms)
@@ -74,13 +76,30 @@ When you first introduce each term, surround it with **double asterisks** to mar
 {vocab_list}
 """
 
+    # tructured heading+bullet groups ---
+    term_groups = extract_heading_bullet_groups(notes_text, max_groups=20, max_bullets_per_group=4)
+    structured_block = ""
+    if term_groups:
+        lines: List[str] = []
+        for g in term_groups:
+            lines.append(f"**{g['term']}**")
+            for b in g["bullets"]:
+                lines.append(f"- {b}")
+        structured_block = """
+The notes contain headings followed by bullet-point definitions. Here are those
+terms with their associated bullets. Use these as HIGH-PRIORITY vocabulary entries
+and compress them into very dense exam-ready definitions:
+
+""" + "\n".join(lines)
+
     prompt = f"""You are generating a VERY COMPACT exam reference sheet.
 
 Your job:
-- Create a SUPER CONDENSED, efficient version of the STUDENT'S NOTES.
+- Create a condensed, efficient version of the STUDENT'S NOTES.
+- Use AS MUCH NOTES CONTENT AS POSSIBLE.
 - PRIORITIZE the NOTES over the topic list.
 - COVER EVERY EXAM TOPIC at least briefly, but DO NOT just repeat the topic list.
-- INCLUDE vocabulary terms and short DEFINITIONS.
+- INCLUDE vocabulary terms and condensed DEFINITIONS.
 - Use dense bullet points and short phrases, not full sentences.
 - Organize content by topic in a logical order.
 - Assume the cheat sheet will be rendered in two columns, but DO NOT mention columns in the text.
@@ -90,6 +109,8 @@ Exam topics (use these as a coverage checklist only):
 
 Student notes (this is the main source of content – compress this aggressively):
 {notes_text}
+
+{structured_block}
 {vocab_block}
 Now write the final cheat sheet below. Start directly with the content:
 """
@@ -150,21 +171,37 @@ def estimated_char_capacity(
     font_size: int = 8,
     page_size=letter,
     margin: float = 0.5 * inch,
+    columns: int = 2,
+    column_gap: float = 0.2 * inch,
+    safety_factor: float = 0.95,
 ) -> int:
     """
-    Rough estimate of how many characters fit into N PDF pages.
-    Used to truncate model output so it doesn't overflow.
+    Rough estimate of how many characters fit into N PDF pages
+    *for the current TWO-COLUMN layout*.
+
+    We:
+      - compute lines per column from vertical space and line height
+      - estimate characters per line from column width and font size
+      - multiply by number of columns and pages
+      - apply a safety_factor so we don't overflow.
     """
-    width, height = page_size
-    usable_width = width - 2 * margin
-    usable_height = height - 2 * margin
+    page_width, page_height = page_size
+    usable_width = page_width - 2 * margin
+    usable_height = page_height - 2 * margin
 
+    # vertical capacity
     line_height = font_size * 1.2
-    lines_per_page = int(usable_height // line_height)
-    chars_per_line = int(usable_width / (font_size * 0.5))
+    lines_per_column = int(usable_height // line_height)
 
-    total_chars = num_pages * lines_per_page * chars_per_line
-    return int(total_chars * 0.9)  # conservative factor
+    # horizontal capacity: width of a single column
+    total_gap = column_gap * (columns - 1)
+    col_width = (usable_width - total_gap) / columns
+
+    # empirically, ~0.55 * font_size per character is a decent approximation
+    chars_per_line = int(col_width / (font_size * 0.55))
+
+    total_chars = num_pages * columns * lines_per_column * chars_per_line
+    return int(total_chars * safety_factor)
 
 
 def simple_keyword_score(text: str, keywords: List[str]) -> int:
