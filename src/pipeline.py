@@ -8,6 +8,7 @@ from .utils import (
     pick_relevant_images,
     estimated_char_capacity,
     extract_vocab_terms_from_notes,
+    chunk_text,
     render_reference_pdf,
 )
 
@@ -23,11 +24,12 @@ def generate_reference_sheet_pipeline(
     """
     End-to-end pipeline:
       - load & parse PDFs
-      - run model to generate cheatsheet text
+      - CHUNK the notes and summarize each chunk
+      - MERGE chunk summaries into a final cheat sheet
       - select relevant diagrams
-      - render PDF with page constraint
+      - render PDF with two-column layout and page constraint
     """
-    # 1) Extract text + images
+    # 1) Extract text + images from PDFs
     notes_pages, notes_images = extract_text_and_images(
         notes_pdf_path,
         os.path.join(img_dir, "notes_imgs"),
@@ -40,36 +42,62 @@ def generate_reference_sheet_pipeline(
     notes_text = concat_page_text(notes_pages)
     exam_topics_text = concat_page_text(topics_pages)
 
-    # 1b) Extract vocabulary terms from the notes
-    # These will be passed into the prompt so the model is nudged
-    # to define and highlight them.
-    vocab_terms = extract_vocab_terms_from_notes(notes_text)
+    # 1b) Extract vocabulary terms from FULL notes
+    global_vocab_terms = extract_vocab_terms_from_notes(notes_text)
 
     # 2) Load model
     tokenizer, model, device = load_model(model_dir)
 
-    # 3) Generate text (page constrained), now USING vocab_terms
-    sheet_text = generate_sheet_for_pages(
-        notes_text=notes_text,
+    # 3) Chunk the notes and summarize each chunk separately
+    note_chunks = chunk_text(notes_text, max_tokens=350)
+    chunk_summaries = []
+
+    for chunk_text_str in note_chunks:
+        # For each chunk, extract local vocab (helps coverage)
+        chunk_vocab = extract_vocab_terms_from_notes(chunk_text_str, max_terms=30)
+
+        mini_summary = generate_sheet_for_pages(
+            notes_text=chunk_text_str,
+            exam_topics_text=exam_topics_text,
+            tokenizer=tokenizer,
+            model=model,
+            device=device,
+            num_pages=1,          # each chunk -> ~1 page worth of content
+            vocab_terms=chunk_vocab,
+        )
+        chunk_summaries.append(mini_summary)
+
+    # Combine mini summaries into one intermediate "notes summary"
+    notes_summary = "\n".join(chunk_summaries)
+
+    # 4) Final condensation step: summarize the combined notes summary
+    # into the requested number of pages, using the global vocab list.
+    final_sheet_text = generate_sheet_for_pages(
+        notes_text=notes_summary,
         exam_topics_text=exam_topics_text,
         tokenizer=tokenizer,
         model=model,
         device=device,
         num_pages=num_pages,
-        vocab_terms=vocab_terms,  # <-- NEW
+        vocab_terms=global_vocab_terms,
     )
 
-    # 4) Select images
+    # 5) Select images
     image_paths = pick_relevant_images(
         exam_topics_text, notes_pages, notes_images, max_images=3
     )
 
-    # 5) Render final PDF
+    # Ensure output directory exists
+    out_dir = os.path.dirname(out_pdf)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    # 6) Render final PDF (two-column)
     render_reference_pdf(
-        sheet_text,
+        final_sheet_text,
         image_paths,
         out_pdf,
         num_pages=num_pages,
     )
 
-    return sheet_text, image_paths, out_pdf
+    return final_sheet_text, image_paths, out_pdf

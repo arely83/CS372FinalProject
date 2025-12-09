@@ -1,4 +1,4 @@
-The model is trained on my own class notes and resources from classes I've taken at Duke.
+The model is trained on my own class notes and resources from classes I've taken at Duke as well as a few sets (6 and 7) from a friend.
 
 **ML Libraries**
 * Hugging Face Transformers: https://github.com/huggingface/transformers - Used for loading pretrained sequence-to-sequence models (FLAN-T5), tokenizers, the Seq2SeqTrainer, and training utilities

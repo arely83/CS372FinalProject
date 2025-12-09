@@ -1,9 +1,8 @@
 import re
-from typing import List
+from typing import List, Tuple
 
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas  # can stay, even if not used
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import (
     BaseDocTemplate,
@@ -15,17 +14,21 @@ from reportlab.platypus import (
 )
 
 
+# -------------------------
+# Vocab extraction utilities
+# -------------------------
+
 def extract_vocab_terms_from_notes(notes_text: str, max_terms: int = 50) -> List[str]:
     """
     Heuristic extraction of vocabulary terms from the notes.
 
     - Looks for patterns like "Term - definition" or "Term: definition".
     - Treats the left-hand side as the vocab term.
-    - Also picks up ALL-CAPS words that look like key concepts.
+    - Also picks up ALL-CAPS words that might be key concepts.
     """
     vocab_terms = set()
 
-    # Pattern-based extraction from "Term - definition" style lines
+    # 1) Pattern-based extraction from "Term - definition" style lines
     for line in notes_text.splitlines():
         line = line.strip()
         if not line:
@@ -35,25 +38,31 @@ def extract_vocab_terms_from_notes(notes_text: str, max_terms: int = 50) -> List
         match = re.match(r"^([A-Za-z0-9 /()\[\]_]+)\s*[-–:]\s+.+$", line)
         if match:
             term = match.group(1).strip()
-            # Avoid super short or obviously junk tokens
             if len(term) > 2:
                 vocab_terms.add(term)
 
-    # ALL-CAPS “concept” words of length >= 3
+    # 2) ALL-CAPS “concept” words of length >= 3
     for token in re.findall(r"\b[A-Z]{3,}\b", notes_text):
         if len(token) >= 3:
             vocab_terms.add(token)
 
-    # Limit to a reasonable number to avoid blowing up the prompt
     return sorted(vocab_terms)[:max_terms]
 
 
-def build_input(notes_text, exam_topics_text, vocab_terms=None):
+# -------------------------
+# Prompt construction
+# -------------------------
+
+def build_input(
+    notes_text: str,
+    exam_topics_text: str,
+    vocab_terms: List[str] | None = None,
+) -> str:
     """
     Construct a strong instruction-style input for the model.
 
     - PRIORITIZE compressing the student's notes.
-    - Use exam topics as a coverage checklist.
+    - Use exam topics as a coverage checklist (not the main content).
     - Include vocabulary terms + short definitions when possible.
     """
     vocab_block = ""
@@ -70,13 +79,13 @@ When you first introduce each term, surround it with **double asterisks** to mar
 Your job:
 - Create a SUPER CONDENSED, efficient version of the STUDENT'S NOTES.
 - PRIORITIZE the NOTES over the topic list.
-- COVER EVERY EXAM TOPIC at least briefly.
+- COVER EVERY EXAM TOPIC at least briefly, but DO NOT just repeat the topic list.
 - INCLUDE vocabulary terms and short DEFINITIONS.
 - Use dense bullet points and short phrases, not full sentences.
 - Organize content by topic in a logical order.
 - Assume the cheat sheet will be rendered in two columns, but DO NOT mention columns in the text.
 
-Exam topics (use these as a checklist, but do NOT just repeat them verbatim):
+Exam topics (use these as a coverage checklist only):
 {exam_topics_text}
 
 Student notes (this is the main source of content – compress this aggressively):
@@ -86,6 +95,10 @@ Now write the final cheat sheet below. Start directly with the content:
 """
     return prompt.strip()
 
+
+# -------------------------
+# Abbreviation handling
+# -------------------------
 
 ABBREV_MAP = {
     "because": "bc",
@@ -98,7 +111,7 @@ ABBREV_MAP = {
 }
 
 
-def apply_abbreviations(text, mapping=ABBREV_MAP):
+def apply_abbreviations(text: str, mapping: dict = ABBREV_MAP) -> str:
     """Apply simple word-level abbreviations to the text."""
     pattern = r"\b\w+\b"
 
@@ -115,13 +128,33 @@ def apply_abbreviations(text, mapping=ABBREV_MAP):
     return re.sub(pattern, repl, text)
 
 
+def normalize_bold_markers(text: str) -> str:
+    """
+    Very simple formatting helper:
+    Turn **TERM** into TERM in ALL CAPS so vocabulary terms visually stand out,
+    even if we don't do true bold rendering.
+    """
+    def repl(match):
+        inner = match.group(1)
+        return inner.upper()
+
+    return re.sub(r"\*\*(.+?)\*\*", repl, text)
+
+
+# -------------------------
+# Capacity & image heuristics
+# -------------------------
+
 def estimated_char_capacity(
-    num_pages,
-    font_size=8,
+    num_pages: int,
+    font_size: int = 8,
     page_size=letter,
-    margin=0.5 * inch,
-):
-    """Rough estimate of how many characters fit into N PDF pages."""
+    margin: float = 0.5 * inch,
+) -> int:
+    """
+    Rough estimate of how many characters fit into N PDF pages.
+    Used to truncate model output so it doesn't overflow.
+    """
     width, height = page_size
     usable_width = width - 2 * margin
     usable_height = height - 2 * margin
@@ -131,15 +164,20 @@ def estimated_char_capacity(
     chars_per_line = int(usable_width / (font_size * 0.5))
 
     total_chars = num_pages * lines_per_page * chars_per_line
-    return int(total_chars * 0.9)
+    return int(total_chars * 0.9)  # conservative factor
 
 
-def simple_keyword_score(text, keywords):
+def simple_keyword_score(text: str, keywords: List[str]) -> int:
     text_lower = text.lower()
     return sum(1 for kw in keywords if kw.lower() in text_lower)
 
 
-def pick_relevant_images(exam_topics_text, notes_pages, notes_images, max_images=4):
+def pick_relevant_images(
+    exam_topics_text: str,
+    notes_pages: List[dict],
+    notes_images: List[dict],
+    max_images: int = 4,
+) -> List[str]:
     """
     Very simple heuristic: pick images from pages whose text overlaps exam topics.
     """
@@ -164,6 +202,32 @@ def pick_relevant_images(exam_topics_text, notes_pages, notes_images, max_images
                     return selected_imgs
     return selected_imgs
 
+
+# -------------------------
+# Chunking for long notes
+# -------------------------
+
+def chunk_text(text: str, max_tokens: int = 350) -> List[str]:
+    """
+    Splits long text into chunks small enough for T5 to summarize.
+    Uses a simple "words per chunk" heuristic.
+    """
+    words = text.split()
+    chunks: List[str] = []
+    cur: List[str] = []
+    for w in words:
+        cur.append(w)
+        if len(cur) >= max_tokens:
+            chunks.append(" ".join(cur))
+            cur = []
+    if cur:
+        chunks.append(" ".join(cur))
+    return chunks
+
+
+# -------------------------
+# Two-column PDF renderer
+# -------------------------
 
 def render_reference_pdf(
     sheet_text: str,
@@ -223,12 +287,13 @@ def render_reference_pdf(
     # --- Build story from text + images ---
     story = []
 
-    # Split text into paragraphs by line (you can tweak this if needed)
+    # Split text into paragraphs by line
     lines = [line.strip() for line in sheet_text.split("\n") if line.strip()]
 
+    if not lines:
+        lines = [sheet_text.strip()]
+
     for line in lines:
-        # Basic replacement so bullet characters behave OK in Paragraph
-        # (ReportLab understands a subset of HTML; here we just treat text literally)
         para_text = line.replace("•", "-")
         story.append(Paragraph(para_text, body_style))
         story.append(Spacer(1, 1.5))
@@ -239,11 +304,9 @@ def render_reference_pdf(
             story.append(Image(img_path, width=1.8 * inch, height=1.3 * inch))
             story.append(Spacer(1, 4))
         except Exception:
-            # If an image can't be loaded, just skip it
             continue
 
     # NOTE: We rely on earlier truncation (estimated_char_capacity) to
-    # keep the story short enough to fit in `num_pages`. BaseDocTemplate
-    # doesn't have a simple "max pages" cap, so the page limit is enforced
-    # indirectly by how much text we feed in.
+    # keep the story short enough. BaseDocTemplate doesn't easily expose
+    # a hard "max pages" cap.
     doc.build(story)
