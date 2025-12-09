@@ -99,8 +99,8 @@ def tokenize_datasets(
     val_dataset: Dataset,
     test_dataset: Dataset,
     tokenizer,
-    max_input_length: int = 2048,
-    max_target_length: int = 512,
+    max_input_length: int = 1024,
+    max_target_length: int = 256,
 ):
     def preprocess(example):
         model_inputs = tokenizer(
@@ -148,7 +148,7 @@ def create_trainer(
         load_best_model_at_end=True,
         metric_for_best_model="loss",
         greater_is_better=False,
-        fp16=True,
+        #fp16=True,
     )
 
     early_stop = EarlyStoppingCallback(
@@ -170,7 +170,7 @@ def create_trainer(
 
 def train_model(
     train_examples: List[Tuple[str, str, str]],
-    model_name: str = "google/flan-t5-base",
+    model_name: str = "google/flan-t5-small",
     output_dir: str = "models/cheatsheet_model",
 ):
     """
@@ -183,7 +183,8 @@ def train_model(
 
     Returns (trainer, tokenized_test)
     """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    #device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
 
     # 1) Dataset
     full_dataset = build_raw_dataset(train_examples)
