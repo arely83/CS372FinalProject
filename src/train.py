@@ -134,12 +134,13 @@ def create_trainer(
 
     training_args = Seq2SeqTrainingArguments(
         output_dir=output_dir,
-        per_device_train_batch_size=2,
-        per_device_eval_batch_size=2,
+        per_device_train_batch_size=1,
+        per_device_eval_batch_size=1,
+        gradient_accumulation_steps=2,
         learning_rate=5e-5,
-        num_train_epochs=15,
-        weight_decay=0.01,  # L2 regularization
-        eval_strategy="epoch",
+        num_train_epochs=10,
+        weight_decay=0.01,
+        evaluation_strategy="epoch",
         save_strategy="epoch",
         logging_strategy="steps",
         logging_steps=1,
@@ -147,6 +148,7 @@ def create_trainer(
         load_best_model_at_end=True,
         metric_for_best_model="loss",
         greater_is_better=False,
+        fp16=True,
     )
 
     early_stop = EarlyStoppingCallback(
