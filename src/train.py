@@ -170,7 +170,7 @@ def create_trainer(
 
 def train_model(
     train_examples: List[Tuple[str, str, str]],
-    model_name: str = "google/flan-t5-small",
+    model_name: str = "google/flan-t5-xl",
     output_dir: str = "models/cheatsheet_model",
 ):
     """

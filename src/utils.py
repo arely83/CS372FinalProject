@@ -113,67 +113,49 @@ def extract_vocab_terms_from_notes(notes_text: str, max_terms: int = 50) -> List
 # Prompt construction
 # -------------------------
 
-def build_input(
-    notes_text: str,
-    exam_topics_text: str,
-    vocab_terms: List[str] | None = None,
-) -> str:
+def build_input(notes_text, exam_topics_text, vocab_terms=None):
     """
-    Construct a strong instruction-style input for the model.
-
-    - PRIORITIZE compressing the student's notes.
-    - Use exam topics as a coverage checklist (not the main content).
-    - Include vocabulary terms + short definitions when possible.
+    Prompt for cheat sheet generation.
     """
 
-    # Vocab block
     vocab_block = ""
     if vocab_terms:
         vocab_list = "\n".join(f"- {t}" for t in vocab_terms)
         vocab_block = f"""
-Key vocabulary terms that MUST appear with short definitions.
-When you first introduce each term, surround it with **double asterisks** to mark it as important:
+Key terms to define briefly (one line each):
 {vocab_list}
 """
 
-    # Structured heading+bullet groups ---
-    term_groups = extract_heading_bullet_groups(notes_text, max_groups=20, max_bullets_per_group=4)
-    structured_block = ""
-    if term_groups:
-        lines: List[str] = []
-        for g in term_groups:
-            lines.append(f"**{g['term']}**")
-            for b in g["bullets"]:
-                lines.append(f"- {b}")
-        structured_block = """
-The notes contain headings followed by bullet-point definitions. Here are those
-terms with their associated bullets. Use these as HIGH-PRIORITY vocabulary entries
-and compress them into very dense exam-ready definitions:
+    prompt = f"""
+You are generating a compact, highly structured exam reference sheet.
 
-""" + "\n".join(lines)
+### TASK
+Create a dense, two-column-friendly cheat sheet that summarizes the NOTES.
+Prioritize the NOTES over the exam topics.
+Cover every exam topic at least briefly.
 
-    prompt = f"""You are generating a VERY COMPACT exam reference sheet.
+### STYLE RULES
+- Use short bullet points (no full sentences).
+- Use abbreviations when possible (bc, w/, w/o, &).
+- Put **bold** markers around key terms when they are introduced.
+- Keep definitions short and highlight relationships.
+- Avoid repetition.
+- Group related ideas under clear section headers.
+- Assume the output will be printed, so use clean formatting.
 
-Your job:
-- Create a condensed, efficient version of the STUDENT'S NOTES.
-- Use AS MUCH NOTES CONTENT AS POSSIBLE.
-- PRIORITIZE the NOTES over the topic list.
-- COVER EVERY EXAM TOPIC at least briefly, but DO NOT just repeat the topic list.
-- INCLUDE vocabulary terms and condensed DEFINITIONS.
-- Use dense bullet points and short phrases, not full sentences.
-- Organize content by topic in a logical order.
-- Assume the cheat sheet will be rendered in two columns, but DO NOT mention columns in the text.
-
-Exam topics (use these as a coverage checklist only):
-{exam_topics_text}
-
-Student notes (this is the main source of content – compress this aggressively):
+### NOTES (primary source to compress):
 {notes_text}
 
-{structured_block}
+### EXAM TOPICS (ensure these appear somewhere):
+{exam_topics_text}
+
 {vocab_block}
-Now write the final cheat sheet below. Start directly with the content:
-"""
+
+### OUTPUT REQUIREMENTS
+Write a clear, concise cheat sheet.
+Start immediately with the first section header.
+Do NOT mention formatting instructions.
+    """
     return prompt.strip()
 
 
