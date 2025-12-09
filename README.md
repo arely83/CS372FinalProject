@@ -28,7 +28,7 @@ The model should already be trained via the [training notebook](https://colab.re
 
 Demo Video: BLAH
 
-Technical Walkthrough: BLAH
+Technical Walkthrough: https://drive.google.com/file/d/1xw3tYBe3QnGiheJVR4WyOpB26DL5ETBR/view?usp=sharing
 
 ---
 
