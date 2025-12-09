@@ -18,6 +18,66 @@ from reportlab.platypus import (
 # Vocab extraction utilities
 # -------------------------
 
+def extract_heading_bullet_groups(
+    notes_text: str,
+    max_groups: int = 50,
+    max_bullets_per_group: int = 6,
+) -> List[dict]:
+    """
+    Detect simple patterns where a HEADING is followed by one or more bullet points.
+    Returns a list of {"term": heading, "bullets": [bullet1, bullet2, ...]}.
+
+    This is heuristic, but works well for notes where:
+      Term or concept name
+      - first defining bullet
+      - more details / examples
+    """
+    lines = notes_text.splitlines()
+    groups: List[dict] = []
+
+    current_term: str | None = None
+    current_bullets: List[str] = []
+
+    # Heuristic: a heading is a short-ish line starting with a capital letter,
+    # without a leading bullet symbol. Adjust as needed for your notes style.
+    heading_pattern = re.compile(r"^[A-Z][A-Za-z0-9 /&(),'\"\-]{2,}$")
+    bullet_pattern = re.compile(r"^\s*[-•●–]\s+")
+
+    for raw_line in lines:
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Bullet line
+        if bullet_pattern.match(stripped):
+            bullet_text = bullet_pattern.sub("", stripped).strip()
+            if current_term is not None and bullet_text:
+                if len(current_bullets) < max_bullets_per_group:
+                    current_bullets.append(bullet_text)
+            continue
+
+        # Heading line (only treat it as a heading if it's not a bullet)
+        if heading_pattern.match(stripped) and not bullet_pattern.match(stripped):
+            # If we were already in a group, close it out
+            if current_term and current_bullets:
+                groups.append({"term": current_term, "bullets": current_bullets})
+                if len(groups) >= max_groups:
+                    return groups
+            # Start a new group
+            current_term = stripped
+            current_bullets = []
+            continue
+
+        # Other lines (non-bullets, non-headings) are ignored here. They’ll still
+        # be present in the raw notes text that the model can see.
+
+    # Final group at end of file
+    if current_term and current_bullets and len(groups) < max_groups:
+        groups.append({"term": current_term, "bullets": current_bullets})
+
+    return groups
+
 def extract_vocab_terms_from_notes(notes_text: str, max_terms: int = 50) -> List[str]:
     """
     Heuristic extraction of vocabulary terms from the notes.
@@ -76,7 +136,7 @@ When you first introduce each term, surround it with **double asterisks** to mar
 {vocab_list}
 """
 
-    # tructured heading+bullet groups ---
+    # Structured heading+bullet groups ---
     term_groups = extract_heading_bullet_groups(notes_text, max_groups=20, max_bullets_per_group=4)
     structured_block = ""
     if term_groups:
