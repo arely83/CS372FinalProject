@@ -38,8 +38,7 @@ Quantitative Results
 Training Curves:
 ![Training and Validation Loss](https://github.com/arely83/CS372FinalProject/blob/main/docs/training_curves.png?raw=true)
 
-The training curves show a steady reduction in training loss and a stable validation loss, which is expected given our small dataset. FLAN-T5 is also a highly expressive model. The model learns the mapping from notes + topics to reference sheets without overfitting dramatically, thanks to weight decay and early stopping. The smoothness and lack of divergence indicate a stable, well-configured training loop.
-
+Because I only had a very small number of training examples (on the order of a few samples), the training and validation curves are extremely noisy and not very informative. With a batch size of 1, gradient accumulation of 2, and only a couple of optimization steps per epoch, the recorded training loss reflects the idiosyncrasies of individual examples rather than a stable trend. The validation set is also just a single example in the small-data regime, so the validation loss appears almost flat across epochs. As a result, the loss curves look unstable and “bad” visually, but this is primarily a consequence of the tiny dataset and fine-grained logging rather than a bug in the training loop.
 
 Qualitative Outcomes
 
